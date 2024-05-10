@@ -2,16 +2,16 @@ from datetime import datetime
 import json
 import math
 
-import openai
+from openai import OpenAI
 import serpapi
 
 
 class TripPlan:
     def __init__(self, cfg='cfg.json'):
-        self.cfg = self.load_config(cfg)
+        self.cfg = self._load_config(cfg)
 
         # setup api keys
-        openai.api_key = self.cfg["OPENAI_API_KEY"]
+        self.openai_client = OpenAI(api_key=self.cfg["OPENAI_API_KEY"])
         self.serp_client = serpapi.Client(api_key=self.cfg["SERPAPI_API_KEY"])
 
         # user trip preferences
@@ -21,10 +21,19 @@ class TripPlan:
         self.budget = math.inf
         self.trip_type = ''
 
-        self.get_user_trip_preferences()
+        # openai suggestion
+        self.possible_destinations = ''
+
+    def create_trip(self):
+        """
+        create the entire trip plan and show the user the details: cost, flight, hotel, daily plan and the images
+        :return:
+        """
+        self._get_user_trip_preferences()
+        self._get_trip_suggestions()
 
     @staticmethod
-    def load_config(cfg):
+    def _load_config(cfg: str) -> any:
         """
         loading the json config
         :return:
@@ -32,7 +41,11 @@ class TripPlan:
         with open(cfg) as config_file:
             return json.load(config_file)
 
-    def get_user_trip_preferences(self):
+    def _get_user_trip_preferences(self) -> None:
+        """
+        get user preferences about start,end dates as well as budget and trip type
+        :return:
+        """
         # start_date = input("Enter the start date of your planned trip (YYYY-MM-DD): ")
         # end_date = input("Enter the end date of your planned trip (YYYY-MM-DD): ")
         # self.budget = float(input("Enter your total budget in USD for the trip: "))
@@ -47,10 +60,38 @@ class TripPlan:
         self.end_date = datetime.strptime(end_date, "%Y-%m-%d")
         self.month = self.start_date.strftime("%B")  # get the month name
 
+    def _get_trip_suggestions(self) -> None:
+        """
+        get trip suggestions from chatgpt - 5 possible places in the world based on the month of the trip
+        :return:
+        """
+        prompt = (f"Suggest 5 possible places in the world for a {self.trip_type} trip in {self.month}. "
+                  f"GIVE JUST NAMES, ONE PLACE IN EACH LINE (DO NOT NUMBER THE OPTIONS!!!)")
+        response = self.openai_client.chat.completions.create(
+            model='gpt-3.5-turbo',
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a knowledgeable travel assistant."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            temperature=0.7,
+            max_tokens=1024,
+        )
+        self.possible_destinations = response.choices[0].message.content.strip().replace('-','').split("\n")
+
+        print(f"Suggested destinations for a {self.trip_type} trip in {self.month}:")
+        for i, destination in enumerate(self.possible_destinations, start=1):
+            print(f"{i}. {destination}")
+
 
 def main():
     plan = TripPlan()
-    print(plan.__dict__)
+    plan.create_trip()
 
 
 if __name__ == '__main__':
