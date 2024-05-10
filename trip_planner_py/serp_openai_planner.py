@@ -44,8 +44,11 @@ class TripPlan:
 
         # serpapi results
         self.travel_options = []
+
+        # final trip results
         self.trip_selection = None
         self.trip_plan = None
+        self.trip_images = []
 
     def create_trip(self) -> None:
         """
@@ -57,6 +60,7 @@ class TripPlan:
         self._get_travel_options()
         self.trip_selection = self.travel_options[self._user_trip_selection()]
         self._generate_daily_plan()
+        self._generate_images_trip_illustration()
 
     @staticmethod
     def _load_config(cfg: str) -> any:
@@ -250,7 +254,7 @@ class TripPlan:
         """
         return 0
 
-    def _generate_daily_plan(self):
+    def _generate_daily_plan(self) -> None:
         """
         get daily trip plan from OpenAI for the chosen location based on the dates of the trip
         :return:
@@ -259,6 +263,30 @@ class TripPlan:
                   f"{self.start_date} to {self.end_date}.")
         response = self._get_info_travel_assistant(prompt, 0.7)
         self.trip_plan = response.choices[0].message.content.strip()
+
+    def _generate_images_trip_illustration(self):
+        """
+        generate 4 trip images from OpenAI's DALL-E that show how the trip will look like
+        :return:
+        """
+        prompts = [
+            f"A scenic view of {self.trip_selection['destination']} with {self.trip_type} activities. activities are: {self.trip_plan[:700]}",
+            f"A person enjoying {self.trip_type} activities in {self.trip_selection['destination']}. activities are: {self.trip_plan[-700:]}",
+            f"The greatest spot in {self.trip_selection['destination']}",
+            f"{self.trip_selection['destination']} in one image (essence)",
+        ]
+        for prompt in prompts:
+            response = self.openai_client.images.generate(
+                prompt=prompt,
+                n=1,
+                size="1024x1024",
+                style='vivid'
+            )
+            self.trip_images.append(response.data[0].url)
+
+        print("\nTrip images:")
+        for i, image_url in enumerate(self.trip_images):
+            print(f"{i}. {image_url}")
 
 
 def main():
