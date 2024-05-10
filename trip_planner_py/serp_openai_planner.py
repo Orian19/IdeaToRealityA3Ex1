@@ -8,7 +8,7 @@ import serpapi
 import airportsdata
 
 
-def get_airport_iata_code(city_name):
+def get_airport_iata_code(city_name: str) -> str:
     airports = airportsdata.load('IATA')  # Load airports data indexed by IATA code
     # Filter airports by city name
     matching_airports = {k: v for k, v in airports.items() if v['city'].lower() == city_name.lower()}
@@ -44,8 +44,10 @@ class TripPlan:
 
         # serpapi results
         self.travel_options = []
+        self.trip_selection = None
+        self.trip_plan = None
 
-    def create_trip(self):
+    def create_trip(self) -> None:
         """
         create the entire trip plan and show the user the details: cost, flight, hotel, daily plan and the images
         :return:
@@ -53,6 +55,8 @@ class TripPlan:
         self._get_user_trip_preferences()
         self._get_trip_suggestions()
         self._get_travel_options()
+        self.trip_selection = self.travel_options[self._user_trip_selection()]
+        self._generate_daily_plan()
 
     @staticmethod
     def _load_config(cfg: str) -> any:
@@ -63,10 +67,10 @@ class TripPlan:
         with open(cfg) as config_file:
             return json.load(config_file)
 
-    def _get_trip_duration(self):
+    def _get_trip_duration(self) -> int:
         """
         get trip duration in days (start date to end date)
-        :return:
+        :return: duration in days
         """
         date1 = datetime.strptime(self.start_date, '%Y-%m-%d')
         date2 = datetime.strptime(self.end_date, '%Y-%m-%d')
@@ -91,14 +95,13 @@ class TripPlan:
 
         self.duration = self._get_trip_duration()
 
-    def _get_trip_suggestions(self) -> None:
+    def _get_info_travel_assistant(self, prompt: str, temperature: float):
         """
-        get trip suggestions from chatgpt - 5 possible places in the world based on the month of the trip
+        chatgpt travel assistant - returns helpful information give a prompt and temperature
+        :param prompt: query
+        :param temperature:
         :return:
         """
-        prompt = (f"Suggest 5 possible places(ONLY CITY NAME!!!) in the world for a {self.trip_type} trip in {self.month}. "
-                  f"GIVE JUST CITY NAMES, ONE PLACE IN EACH LINE (DO NOT NUMBER THE OPTIONS!!!). "
-                  f"I repeat, give only CITY name and don't number the opotions")
         response = self.openai_client.chat.completions.create(
             model='gpt-3.5-turbo',
             messages=[
@@ -111,9 +114,21 @@ class TripPlan:
                     "content": prompt
                 }
             ],
-            temperature=1,
+            temperature=temperature,
             max_tokens=1024,
         )
+
+        return response
+
+    def _get_trip_suggestions(self) -> None:
+        """
+        get trip suggestions from chatgpt - 5 possible places in the world based on the month of the trip
+        :return:
+        """
+        prompt = (f"Suggest 5 possible places(ONLY CITY NAME!!!) in the world for a {self.trip_type} trip in {self.month}. "
+                  f"GIVE JUST CITY NAMES, ONE PLACE IN EACH LINE (DO NOT NUMBER THE OPTIONS!!!). "
+                  f"I repeat, give only CITY name and don't number the opotions")
+        response = self._get_info_travel_assistant(prompt, 1)
         self.possible_destinations = response.choices[0].message.content.strip().replace('- ', '').split("\n")
 
         print(f"Suggested destinations for a {self.trip_type} trip in {self.month}:")
@@ -123,6 +138,7 @@ class TripPlan:
     def _get_flight(self, destination: str) -> dict[str: float]:
         cheapest_flight = {}
         try:
+            # TODO: uncomment
             # response = self.serp_client.search(
             #     engine='google_flights',
             #     departure_id=get_airport_iata_code(self.origin),
@@ -133,13 +149,16 @@ class TripPlan:
             #     # stops=1
             # )
 
+            # TODO: delete
             with open('flights_response.json') as response:
                 response = json.load(response)
 
+            # TODO: uncomment
             # if response.data:
             #     response = response.data['best_flights'][0]
             #     cheapest_flight.update({destination: response})
 
+            # TODO: delete
             if response['best_flights']:
                 response = response['best_flights'][0]
                 cheapest_flight.update({destination: response})
@@ -151,6 +170,7 @@ class TripPlan:
     def _get_hotel(self, destination: str, duration, budget: float) -> dict[str: float] | None:
         expensive_hotel = {}
         try:
+            # TODO: uncomment
             # response = self.serp_client.search(
             #     engine='google_hotels',
             #     q=f'{destination} hotels',
@@ -161,9 +181,11 @@ class TripPlan:
             #     check_out_date=self.end_date,
             # )
 
+            # TODO: delete
             with open('hotels_response.json') as response:
                 response = json.load(response)
 
+            # TODO: uncomment
             # if response.data:
             #     response = response.data['properties']
             #     for prop in reversed(response):
@@ -171,6 +193,7 @@ class TripPlan:
             #             expensive_hotel.update({destination: prop})
             #             return expensive_hotel
 
+            # TODO: delete
             if response['properties']:
                 response = response['properties']
                 for prop in reversed(response):
@@ -219,6 +242,23 @@ class TripPlan:
                 "hotel": expensive_hotel,
                 "total_cost": total_cost,
             })
+
+    def _user_trip_selection(self):
+        """
+        handle the selection of the user for the trip give the travel_options found by serp
+        :return:
+        """
+        return 0
+
+    def _generate_daily_plan(self):
+        """
+        get daily trip plan from OpenAI for the chosen location based on the dates of the trip
+        :return:
+        """
+        prompt = (f"Create a daily plan for a {self.trip_type} trip to {self.trip_selection['destination']} from "
+                  f"{self.start_date} to {self.end_date}.")
+        response = self._get_info_travel_assistant(prompt, 0.7)
+        self.trip_plan = response.choices[0].message.content.strip()
 
 
 def main():
