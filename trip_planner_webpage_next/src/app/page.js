@@ -107,42 +107,41 @@ export default function Home() {
             </button>
           </form>
           {isLoading ? (
-  <p className="text-lg font-semibold">Loading...</p>
-) : (
-  <div className="mt-4">
-    <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Travel Results:</h2>
-    {results.length > 0 ? (
-      results[0].map((option, index) => (
-        <div key={index} className={`mb-4 p-4 rounded shadow ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}`}>
-          <h3 className="text-lg font-bold mb-2">Destination: {option.destination}</h3>
-          <div>
-            <h4 className="font-semibold">Flights:</h4>
-            {option.flight?.[option.destination]?.flights?.map((flight, flightIdx) => (
-              <div key={flightIdx} className="mb-2">
-                <p><strong>Departure:</strong> {flight.departure_airport.name} ({flight.departure_airport.time})</p>
-                <p><strong>Arrival:</strong> {flight.arrival_airport.name} ({flight.arrival_airport.time})</p>
-                <p><strong>Airline:</strong> {flight.airline} <img src={flight.airline_logo} alt="Airline logo" style={{verticalAlign: 'middle', height: '20px'}}/></p>
+              <p className="text-lg font-semibold">Loading...</p>
+            ) : (
+              <div className="mt-4">
+                <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Travel Results:</h2>
+                {results.length > 0 ? (
+                  results[0].map((option, index) => (
+                    <div key={index} className={`mb-4 p-4 rounded shadow ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}`}>
+                      <h3 className="text-lg font-bold mb-2">Destination: {option.destination}</h3>
+                      <div>
+                        <h4 className="font-semibold">Flights:</h4>
+                        {option.flight?.[option.destination]?.flights?.map((flight, flightIdx) => (
+                          <div key={flightIdx} className="mb-2">
+                            <p><strong>Departure:</strong> {flight.departure_airport.name} ({flight.departure_airport.time})</p>
+                            <p><strong>Arrival:</strong> {flight.arrival_airport.name} ({flight.arrival_airport.time})</p>
+                            <p><strong>Airline:</strong> {flight.airline} <img src={flight.airline_logo} alt="Airline logo" style={{verticalAlign: 'middle', height: '20px'}}/></p>
+                          </div>
+                        ))}
+                      </div>
+                      <div>
+                        <h4 className="font-semibold">Hotel:</h4>
+                        <p><strong>Name:</strong> {option.hotel?.[option.destination]?.name}</p>
+                        <p><strong>Check-in:</strong> {option.hotel?.[option.destination]?.check_in_time}, <strong>Check-out:</strong> {option.hotel?.[option.destination]?.check_out_time}</p>
+                        <p><strong>Rate per night:</strong> {option.hotel?.[option.destination]?.rate_per_night?.lowest}</p>
+                      </div>
+                      <div>
+                        <h4 className="font-semibold">Total Cost:</h4>
+                        <p>${option.total_cost}</p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p>No results found.</p>
+                )}
               </div>
-            ))}
-          </div>
-          <div>
-            <h4 className="font-semibold">Hotel:</h4>
-            <p><strong>Name:</strong> {option.hotel?.[option.destination]?.name}</p>
-            <p><strong>Check-in:</strong> {option.hotel?.[option.destination]?.check_in_time}, <strong>Check-out:</strong> {option.hotel?.[option.destination]?.check_out_time}</p>
-            <p><strong>Rate per night:</strong> {option.hotel?.[option.destination]?.rate_per_night?.lowest}</p>
-          </div>
-          <div>
-            <h4 className="font-semibold">Total Cost:</h4>
-            <p>${option.total_cost}</p>
-          </div>
-        </div>
-      ))
-    ) : (
-      <p>No results found.</p>
-    )}
-  </div>
-)}
-
+            )}
         </div>
       </div>
     </main>
