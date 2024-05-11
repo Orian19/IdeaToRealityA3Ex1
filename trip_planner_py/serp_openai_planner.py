@@ -323,8 +323,8 @@ class TripPlan:
         :return:
         """
         prompts = [
-            f"A scenic view of {self.trip_selection['destination']} with {self.trip_type} activities. activities are: {self.trip_plan[:700]}",
-            f"A person enjoying {self.trip_type} activities in {self.trip_selection['destination']}. activities are: {self.trip_plan[-700:]}",
+            f"A scenic view of {self.trip_selection['destination']} with {self.trip_type} activities. activities are: {self.trip_plan[:200]}",
+            f"A person enjoying {self.trip_type} activities in {self.trip_selection['destination']}. activities are: {self.trip_plan[-500:]}",
             f"The greatest spot in {self.trip_selection['destination']}",
             f"{self.trip_selection['destination']} in one image (essence)",
         ]
@@ -359,7 +359,7 @@ def _get_user_trip_preferences(user_pref: TripPreferences):
     plan.get_user_trip_preferences(user_pref)
 
 
-@app.post("/travel_options/")
+@app.get("/travel_options/")
 def get_travel_options():
     plan.get_travel_options()
     if not plan.travel_options:
@@ -375,7 +375,7 @@ def generate_daily_plan(trip_selection: TripSelection):
     return plan.trip_plan
 
 
-@app.post("/trip_images/")
+@app.get("/trip_images/")
 def generate_images_trip_illustration() -> list[str | None]:
     plan.generate_images_trip_illustration()
     if not plan.trip_images:
