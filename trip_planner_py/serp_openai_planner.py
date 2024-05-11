@@ -354,13 +354,9 @@ class TripPlan:
 plan = TripPlan()
 
 
-@app.post("/user_preferences/")
+@app.post("/travel_options/")
 def _get_user_trip_preferences(user_pref: TripPreferences):
     plan.get_user_trip_preferences(user_pref)
-
-
-@app.get("/travel_options/")
-def get_travel_options():
     plan.get_travel_options()
     if not plan.travel_options:
         raise HTTPException(status_code=404, detail="Data not found - Trip Options")
