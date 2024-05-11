@@ -10,6 +10,7 @@ export default function Home() {
 
   const [selectedTripIndex, setSelectedTripIndex] = useState(null);
   const [travelPlan, setTravelPlan] = useState('');
+  const [travelImages, setTravelImages] = useState('');
 
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState([]);
@@ -73,7 +74,8 @@ export default function Home() {
       });
       if (response.ok) {
         const data = await response.json();
-        setTravelPlan(data);  // Assume the backend sends back a plain string
+        setTravelPlan(data[0]);  // Assume the backend sends back a plain string
+        setTravelImages(data[1]);  // Assume the backend sends back a plain string
       } else {
         console.error("Failed to generate travel plan");
       }
@@ -182,6 +184,17 @@ export default function Home() {
                   <div className="travel-plan mt-4">
                     <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Your Travel Plan:</h2>
                     <p className={`p-4 ${darkMode ? 'bg-gray-700 text-white' : 'bg-white text-black'}`} style={{ whiteSpace: 'pre-wrap' }}>{travelPlan}</p>
+                  </div>
+                )}
+                {/* Display the travel plan if available */}
+                {travelImages && travelImages.length > 0 && (
+                  <div className="travel-plan mt-4">
+                    <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Your Travel Plan in Images:</h2>
+                    <div className={`p-4 ${darkMode ? 'bg-gray-700 text-white' : 'bg-white text-black'}`}>
+                      {travelImages.map((url, index) => (
+                        <img key={index} src={url} alt={`Travel Plan Image ${index + 1}`} style={{ width: '100%', marginBottom: '10px' }} />
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

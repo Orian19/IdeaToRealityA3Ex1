@@ -192,10 +192,6 @@ class TripPlan:
         response = self.get_info_travel_assistant(prompt, 1)
         self.possible_destinations = response.choices[0].message.content.strip().replace('- ', '').split("\n")
 
-        # print(f"Suggested destinations for a {self.trip_type} trip in {self.month}:")
-        # for i, destination in enumerate(self.possible_destinations, start=1):
-        #     print(f"{i}. {destination}")
-
     def get_flight(self, destination: str) -> dict[str: float]:
         cheapest_flight = {}
         try:
@@ -328,7 +324,6 @@ class TripPlan:
             f"The greatest spot in {self.trip_selection['destination']}",
             f"{self.trip_selection['destination']} in one image (essence)",
         ]
-        trip_images = []
         for prompt in prompts:
             response = self.openai_client.images.generate(
                 prompt=prompt,
@@ -336,10 +331,6 @@ class TripPlan:
                 size="1024x1024",
             )
             self.trip_images.append(response.data[0].url)
-
-        # print("\nTrip images:")
-        # for i, image_url in enumerate(self.trip_images, start=1):
-        #     print(f"{i}. {image_url}")
 
     @app.post("/trip_results/")
     def send_trip_results(self, user_email: TripResultsHandling):
@@ -368,21 +359,9 @@ def generate_daily_plan(trip_selection: TripSelection):
     plan.generate_daily_plan(trip_selection)
     if not plan.trip_plan:
         raise HTTPException(status_code=404, detail="Data not found - Travel Plans")
-    return plan.trip_plan
 
-
-@app.get("/trip_images/")
-def generate_images_trip_illustration() -> list[str | None]:
     plan.generate_images_trip_illustration()
     if not plan.trip_images:
         raise HTTPException(status_code=404, detail="Data not found - Trip Images")
-    return plan.trip_images
 
-# def main():
-#     plan = TripPlan()
-#     # plan.create_trip()
-#
-#
-# if __name__ == '__main__':
-#     main()
-#     # uvicorn.run("main:app", port=8001, reload=True)
+    return plan.trip_plan, plan.trip_images
