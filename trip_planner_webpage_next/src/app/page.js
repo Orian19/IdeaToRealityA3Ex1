@@ -99,7 +99,8 @@ export default function Home() {
 
         {/* Main Content Area */}
         <div className="flex-grow p-4">
-          <h1 className={`text-3xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Enter Trip Preferences</h1>
+          <h1 className={`text-5xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>AI Trip Planner</h1>
+          <h2 className={`text-2xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Enter Trip Preferences</h2>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <input
               type="date"
@@ -177,7 +178,7 @@ export default function Home() {
                     </button>
                   </form>
                 ) : (
-                  <p>No results found.</p>
+                  <p>No results found yet.</p>
                 )}
                 {/* Display the travel plan if available */}
                 {travelPlan && (
