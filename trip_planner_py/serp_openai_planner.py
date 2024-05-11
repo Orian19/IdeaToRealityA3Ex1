@@ -143,16 +143,6 @@ class TripPlan:
         self.budget = user_pref.budget
         self.trip_type = user_pref.trip_type
 
-        # start_date = input("Enter the start date of your planned trip (YYYY-MM-DD): ")
-        # end_date = input("Enter the end date of your planned trip (YYYY-MM-DD): ")
-        # self.budget = float(input("Enter your total budget in USD for the trip: "))
-        # self.trip_type = input("Enter the type of trip (ski/beach/city): ")
-
-        # self.start_date = '2024-10-10'
-        # self.end_date = '2024-10-15'
-        # self.budget = 10000
-        # self.trip_type = 'city'
-
         self.month = datetime.strptime(self.start_date, "%Y-%m-%d").strftime("%B")  # get the month name
 
         self.duration = self._get_trip_duration()
@@ -196,8 +186,13 @@ class TripPlan:
         if '1' in self.possible_destinations[0]:  # in case (annoying) chatgpt numbered the results
             self.possible_destinations = [re.sub(r'^\d+\.\s*', '', s) for s in response.split("\n")]
 
+        self.possible_destinations = [dest.strip() for dest in self.possible_destinations]
+
     def get_flight(self, destination: str) -> dict[str: float]:
         cheapest_flight = {}
+        dest_airport = get_airport_iata_code(destination)
+        if 'No' in dest_airport:
+            dest_airport = 'MAD'
         try:
             # TODO: uncomment
             response = self.serp_client.search(
@@ -297,7 +292,7 @@ class TripPlan:
             # cheapest_flight_key = min(flights, key=lambda k: flights[k]['price'])
             # most_expensive_hotel_key = max(hotels, key=lambda k: hotels[k]['prices'][0]['rate_per_night']['extracted_lowest'])
             most_expensive_hotel_price = expensive_hotel.get(next(iter(
-                expensive_hotel)))['prices'][0]['rate_per_night']['extracted_lowest']
+                expensive_hotel)))['rate_per_night']['extracted_lowest']
             total_cost = cheapest_flight_price + most_expensive_hotel_price * self.duration
             self.travel_options.append({
                 "destination": destination,
