@@ -2,6 +2,7 @@ from datetime import datetime
 import json
 import math
 import os
+import re
 
 from openai import OpenAI
 import serpapi
@@ -190,73 +191,76 @@ class TripPlan:
                   f"GIVE JUST CITY NAMES, ONE PLACE IN EACH LINE (DO NOT NUMBER THE OPTIONS!!!). "
                   f"I repeat, give only CITY name and don't number the opotions")
         response = self.get_info_travel_assistant(prompt, 1)
-        self.possible_destinations = response.choices[0].message.content.strip().replace('- ', '').split("\n")
+        response = response.choices[0].message.content.strip()
+        self.possible_destinations = response.replace('- ', '').split("\n")
+        if '1' in self.possible_destinations[0]:  # in case (annoying) chatgpt numbered the results
+            self.possible_destinations = [re.sub(r'^\d+\.\s*', '', s) for s in response.split("\n")]
 
     def get_flight(self, destination: str) -> dict[str: float]:
         cheapest_flight = {}
         try:
             # TODO: uncomment
-            # response = self.serp_client.search(
-            #     engine='google_flights',
-            #     departure_id=get_airport_iata_code(self.origin),
-            #     arrival_id=get_airport_iata_code(destination),
-            #     outbound_date=self.start_date,
-            #     return_date=self.end_date,
-            #     show_hidden=True
-            #     # stops=1
-            # )
+            response = self.serp_client.search(
+                engine='google_flights',
+                departure_id=get_airport_iata_code(self.origin),
+                arrival_id=get_airport_iata_code(destination),
+                outbound_date=self.start_date,
+                return_date=self.end_date,
+                show_hidden=True
+                # stops=1
+            )
 
             # TODO: delete
-            with open('flights_response.json') as response:
-                response = json.load(response)
+            # with open('flights_response.json') as response:
+            #     response = json.load(response)
 
             # TODO: uncomment
-            # if response.data:
-            #     response = response.data['best_flights'][0]
-            #     cheapest_flight.update({destination: response})
+            if response.data:
+                response = response.data['best_flights'][0]
+                cheapest_flight.update({destination: response})
 
             # TODO: delete
-            if response['best_flights']:
-                response = response['best_flights'][0]
-                cheapest_flight.update({destination: response})
+            # if response['best_flights']:
+            #     response = response['best_flights'][0]
+            #     cheapest_flight.update({destination: response})
         except serpapi.exceptions.SerpApiError as e:
             print(f"Error searching flights to {destination}: {e}")
 
         return cheapest_flight
 
-    def get_hotel(self, destination: str, duration, budget: float) -> dict[str: float] | None:
+    def get_hotel(self, destination: str, duration: int, budget: int) -> dict[str: int] | None:
         expensive_hotel = {}
         try:
             # TODO: uncomment
-            # response = self.serp_client.search(
-            #     engine='google_hotels',
-            #     q=f'{destination} hotels',
-            #     adults=1,
-            #     sort_by=3,  # sorts by low
-            #     max_price=budget,
-            #     check_in_date=self.start_date,
-            #     check_out_date=self.end_date,
-            # )
+            response = self.serp_client.search(
+                engine='google_hotels',
+                q=f'{destination} hotels',
+                adults=1,
+                sort_by=3,  # sorts by low
+                max_price=budget,
+                check_in_date=self.start_date,
+                check_out_date=self.end_date,
+            )
 
             # TODO: delete
-            with open('hotels_response.json') as response:
-                response = json.load(response)
+            # with open('hotels_response.json') as response:
+            #     response = json.load(response)
 
             # TODO: uncomment
-            # if response.data:
-            #     response = response.data['properties']
+            if response.data:
+                response = response.data['properties']
+                for prop in reversed(response):
+                    if prop['rate_per_night']['extracted_lowest'] * duration <= budget:
+                        expensive_hotel.update({destination: prop})
+                        return expensive_hotel
+
+            # TODO: delete
+            # if response['properties']:
+            #     response = response['properties']
             #     for prop in reversed(response):
             #         if prop['prices'][0]['rate_per_night']['extracted_lowest'] * duration <= budget:
             #             expensive_hotel.update({destination: prop})
             #             return expensive_hotel
-
-            # TODO: delete
-            if response['properties']:
-                response = response['properties']
-                for prop in reversed(response):
-                    if prop['prices'][0]['rate_per_night']['extracted_lowest'] * duration <= budget:
-                        expensive_hotel.update({destination: prop})
-                        return expensive_hotel
         except serpapi.exceptions.SerpApiError as e:
             print(f"Error searching hotels in {destination}: {e}")
 
@@ -287,7 +291,7 @@ class TripPlan:
                 exit()
             flights.update(cheapest_flight)
 
-            expensive_hotel = self.get_hotel(destination, self.duration, self.budget - cheapest_flight_price)
+            expensive_hotel = self.get_hotel(destination, self.duration, int(self.budget - cheapest_flight_price))
             hotels.update(expensive_hotel)
 
             # cheapest_flight_key = min(flights, key=lambda k: flights[k]['price'])
