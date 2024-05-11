@@ -1,11 +1,62 @@
 from datetime import datetime
 import json
 import math
+import os
 
 from openai import OpenAI
 import serpapi
 
 import airportsdata
+
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field, EmailStr
+import uvicorn
+
+
+app = FastAPI()
+
+allowed_origin = os.getenv('CORS_ORIGIN', 'http://localhost:3000')
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[allowed_origin],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+class TripPreferences(BaseModel):
+    """
+    user preferences for the trip - using pydantic to validate data (type and context wise)
+    """
+    model_config = {
+        "extra": "forbid",  # not allowing attributes that are not defined here to be sent from the client
+    }
+    start_date: str = Field(examples=["2024-10-10"], description="start date of the trip")
+    end_date: str = Field(examples=["2024-10-15"], description="end date of the trip")
+    budget: float = Field(examples=["3000"], description="budget in US $")
+    trip_type: str = Field(examples=["city", "ski", "beach"], description="trip type")
+
+
+class TripSelection(BaseModel):
+    """
+    user trip selection out of the available options - using pydantic to validate data (type and context wise)
+    """
+    model_config = {
+        "extra": "forbid",  # not allowing attributes that are not defined here to be sent from the client
+    }
+    trip_selection_idx: int  # index from travel_options list
+
+
+class TripResultsHandling(BaseModel):
+    """
+    trip results - using pydantic to validate data (type and context wise)
+    """
+    model_config = {
+        "extra": "forbid",  # not allowing attributes that are not defined here to be sent from the client
+    }
+    email: EmailStr = Field(examples=["example@gmail.com"], description="email address to send results to", frozen=True)
 
 
 def get_airport_iata_code(city_name: str) -> str:
@@ -55,12 +106,12 @@ class TripPlan:
         create the entire trip plan and show the user the details: cost, flight, hotel, daily plan and the images
         :return:
         """
-        self._get_user_trip_preferences()
-        self._get_trip_suggestions()
-        self._get_travel_options()
-        self.trip_selection = self.travel_options[self._user_trip_selection()]
-        self._generate_daily_plan()
-        self._generate_images_trip_illustration()
+        # self._get_user_trip_preferences()
+        # self._get_trip_suggestions()
+        # self.travel_options = self._get_travel_options()
+        # self.trip_plan = self._generate_daily_plan()
+        # self.trip_images = self._generate_images_trip_illustration()
+        pass
 
     @staticmethod
     def _load_config(cfg: str) -> any:
@@ -80,24 +131,33 @@ class TripPlan:
         date2 = datetime.strptime(self.end_date, '%Y-%m-%d')
         return abs((date2 - date1).days)
 
-    def _get_user_trip_preferences(self) -> None:
+    @app.post("/user_preferences/")
+    def _get_user_trip_preferences(self, user_pref: TripPreferences) -> str:
         """
         get user preferences about start,end dates as well as budget and trip type
         :return:
         """
+
+        self.start_date = user_pref.start_date
+        self.end_date = user_pref.end_date
+        self.budget = user_pref.budget
+        self.trip_type = user_pref.trip_type
+
         # start_date = input("Enter the start date of your planned trip (YYYY-MM-DD): ")
         # end_date = input("Enter the end date of your planned trip (YYYY-MM-DD): ")
         # self.budget = float(input("Enter your total budget in USD for the trip: "))
         # self.trip_type = input("Enter the type of trip (ski/beach/city): ")
 
-        self.start_date = '2024-10-10'
-        self.end_date = '2024-10-15'
-        self.budget = 10000
-        self.trip_type = 'city'
+        # self.start_date = '2024-10-10'
+        # self.end_date = '2024-10-15'
+        # self.budget = 10000
+        # self.trip_type = 'city'
 
         self.month = datetime.strptime(self.start_date, "%Y-%m-%d").strftime("%B")  # get the month name
 
         self.duration = self._get_trip_duration()
+
+        return "success"
 
     def _get_info_travel_assistant(self, prompt: str, temperature: float):
         """
@@ -210,7 +270,8 @@ class TripPlan:
         print("No hotels in your budget. You can't afford this trip")
         exit()
 
-    def _get_travel_options(self) -> None:
+    @app.post("/travel_options/")
+    def _get_travel_options(self) -> list:
         """
         make a request to google flights using serapi and search for flights from Tel Aviv to each of the possible
         destinations chatgpt found. choosing the cheapest flight for each destination.
@@ -222,6 +283,10 @@ class TripPlan:
 
         :return:
         """
+        self._get_trip_suggestions()
+
+        travel_options = []
+
         flights = {}  # cheapest
         hotels = {}  # most expensive (budget is after selecting the flight)
         for destination in self.possible_destinations:
@@ -240,31 +305,37 @@ class TripPlan:
             most_expensive_hotel_price = expensive_hotel.get(next(iter(
                 expensive_hotel)))['prices'][0]['rate_per_night']['extracted_lowest']
             total_cost = cheapest_flight_price + most_expensive_hotel_price * self.duration
-            self.travel_options.append({
+            travel_options.append({
                 "destination": destination,
                 "flight": cheapest_flight,
                 "hotel": expensive_hotel,
                 "total_cost": total_cost,
             })
 
-    def _user_trip_selection(self):
-        """
-        handle the selection of the user for the trip give the travel_options found by serp
-        :return:
-        """
-        return 0
+            if not travel_options:
+                raise HTTPException(status_code=404, detail="Data not found - Travel Options")
 
-    def _generate_daily_plan(self) -> None:
+        return travel_options
+
+    @app.post("/travel_plans/")
+    def _generate_daily_plan(self, trip_selection: TripSelection) -> str:
         """
         get daily trip plan from OpenAI for the chosen location based on the dates of the trip
         :return:
         """
+        self.trip_selection = self.travel_options[trip_selection.trip_selection_idx]
         prompt = (f"Create a daily plan for a {self.trip_type} trip to {self.trip_selection['destination']} from "
                   f"{self.start_date} to {self.end_date}.")
         response = self._get_info_travel_assistant(prompt, 0.7)
-        self.trip_plan = response.choices[0].message.content.strip()
+        trip_plan = response.choices[0].message.content.strip()
 
-    def _generate_images_trip_illustration(self):
+        if not trip_plan:
+            raise HTTPException(status_code=404, detail="Data not found - Travel Plans")
+
+        return trip_plan
+
+    @app.post("/trip_images/")
+    def _generate_images_trip_illustration(self) -> list[str | None]:
         """
         generate 4 trip images from OpenAI's DALL-E that show how the trip will look like
         :return:
@@ -275,24 +346,41 @@ class TripPlan:
             f"The greatest spot in {self.trip_selection['destination']}",
             f"{self.trip_selection['destination']} in one image (essence)",
         ]
+        trip_images = []
         for prompt in prompts:
             response = self.openai_client.images.generate(
                 prompt=prompt,
                 n=1,
                 size="1024x1024",
-                style='vivid'
             )
-            self.trip_images.append(response.data[0].url)
+            trip_images.append(response.data[0].url)
 
-        print("\nTrip images:")
-        for i, image_url in enumerate(self.trip_images):
-            print(f"{i}. {image_url}")
+        # print("\nTrip images:")
+        # for i, image_url in enumerate(self.trip_images, start=1):
+        #     print(f"{i}. {image_url}")
 
+        if not trip_images:
+            raise HTTPException(status_code=404, detail="Data not found - Trip Images")
+
+        return trip_images
+
+    @app.post("/trip_results/")
+    def _send_trip_results(self, user_email: TripResultsHandling):
+        """
+        send trip results: plans, images, etc... to the user's email
+        :param user_email:
+        :return:
+        """
+        print(user_email.email)
+
+
+TripPlan()
 
 def main():
     plan = TripPlan()
-    plan.create_trip()
+    # plan.create_trip()
 
 
 if __name__ == '__main__':
     main()
+    # uvicorn.run("main:app", port=8001, reload=True)
