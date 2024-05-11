@@ -8,7 +8,8 @@ export default function Home() {
   const [budget, setBudget] = useState('');
   const [tripType, setTripType] = useState('');
 
-  const [travelOptions, setTravelOptions] = useState([]);
+  const [selectedTripIndex, setSelectedTripIndex] = useState(null);
+  const [travelPlan, setTravelPlan] = useState('');
 
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState([]);
@@ -56,6 +57,33 @@ export default function Home() {
 
     setIsLoading(false);
   };
+
+  const handleSubmitTripSelection = async (event) => {
+    event.preventDefault();
+    if (selectedTripIndex === null) {
+      alert('Please select a destination.');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const response = await fetch('http://127.0.0.1:8001/travel_plans/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trip_selection_idx: selectedTripIndex })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setTravelPlan(data);  // Assume the backend sends back a plain string
+      } else {
+        console.error("Failed to generate travel plan");
+      }
+    } catch (error) {
+      console.error("Error generating travel plan:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
 
   return (
     <main className={`flex min-h-screen items-center justify-center ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-black'}`}>
@@ -112,36 +140,53 @@ export default function Home() {
               <div className="mt-4">
                 <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Travel Results:</h2>
                 {results.length > 0 ? (
-                  results[0].map((option, index) => (
-                    <div key={index} className={`mb-4 p-4 rounded shadow ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}`}>
-                      <h3 className="text-lg font-bold mb-2">Destination: {option.destination}</h3>
-                      <div>
-                        <h4 className="font-semibold">Flights:</h4>
-                        {option.flight?.[option.destination]?.flights?.map((flight, flightIdx) => (
-                          <div key={flightIdx} className="mb-2">
-                            <p><strong>Departure:</strong> {flight.departure_airport.name} ({flight.departure_airport.time})</p>
-                            <p><strong>Arrival:</strong> {flight.arrival_airport.name} ({flight.arrival_airport.time})</p>
-                            <p><strong>Airline:</strong> {flight.airline} <img src={flight.airline_logo} alt="Airline logo" style={{verticalAlign: 'middle', height: '20px'}}/></p>
-                          </div>
-                        ))}
+                  <form onSubmit={handleSubmitTripSelection}>
+                    {results[0].map((option, index) => (
+                      <div key={index} className={`mb-4 p-4 rounded shadow ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}`}>
+                        <div>
+                          <input type="radio" id={`trip-${index}`} name="tripSelection" value={index}
+                            onChange={() => setSelectedTripIndex(index)} checked={selectedTripIndex === index} />
+                          <label htmlFor={`trip-${index}`} className="text-lg font-bold mb-2">Destination: {option.destination}</label>
+                        </div>
+                        <div>
+                          <h4 className="font-semibold">Flights:</h4>
+                          {option.flight?.[option.destination]?.flights?.map((flight, flightIdx) => (
+                            <div key={flightIdx} className="mb-2">
+                              <p><strong>Departure:</strong> {flight.departure_airport.name} ({flight.departure_airport.time})</p>
+                              <p><strong>Arrival:</strong> {flight.arrival_airport.name} ({flight.arrival_airport.time})</p>
+                              <p><strong>Airline:</strong> {flight.airline} <img src={flight.airline_logo} alt="Airline logo" style={{verticalAlign: 'middle', height: '20px'}}/></p>
+                            </div>
+                          ))}
+                        </div>
+                        <div>
+                          <h4 className="font-semibold">Hotel:</h4>
+                          <p><strong>Name:</strong> {option.hotel?.[option.destination]?.name}</p>
+                          <p><strong>Check-in:</strong> {option.hotel?.[option.destination]?.check_in_time}, <strong>Check-out:</strong> {option.hotel?.[option.destination]?.check_out_time}</p>
+                          <p><strong>Rate per night:</strong> {option.hotel?.[option.destination]?.rate_per_night?.lowest}</p>
+                        </div>
+                        <div>
+                          <h4 className="font-semibold">Total Cost:</h4>
+                          <p>${option.total_cost}</p>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="font-semibold">Hotel:</h4>
-                        <p><strong>Name:</strong> {option.hotel?.[option.destination]?.name}</p>
-                        <p><strong>Check-in:</strong> {option.hotel?.[option.destination]?.check_in_time}, <strong>Check-out:</strong> {option.hotel?.[option.destination]?.check_out_time}</p>
-                        <p><strong>Rate per night:</strong> {option.hotel?.[option.destination]?.rate_per_night?.lowest}</p>
-                      </div>
-                      <div>
-                        <h4 className="font-semibold">Total Cost:</h4>
-                        <p>${option.total_cost}</p>
-                      </div>
-                    </div>
-                  ))
+                    ))}
+                    <button type="submit" className={`rounded-md py-2 px-4 text-lg text-white ${darkMode ? 'bg-gray-600 hover:bg-gray-700' : 'bg-blue-500 hover:bg-blue-600'}`}>
+                      Generate Travel Plan
+                    </button>
+                  </form>
                 ) : (
                   <p>No results found.</p>
                 )}
+                {/* Display the travel plan if available */}
+                {travelPlan && (
+                  <div className="travel-plan mt-4">
+                    <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Your Travel Plan:</h2>
+                    <p className={`p-4 ${darkMode ? 'bg-gray-700 text-white' : 'bg-white text-black'}`} style={{ whiteSpace: 'pre-wrap' }}>{travelPlan}</p>
+                  </div>
+                )}
               </div>
             )}
+
         </div>
       </div>
     </main>
