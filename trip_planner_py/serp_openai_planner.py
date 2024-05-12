@@ -194,7 +194,6 @@ class TripPlan:
         cheapest_flight = {}
 
         try:
-            # TODO: uncomment
             # response = self.serp_client.search(
             #     engine='google_flights',
             #     departure_id=get_airport_iata_code(destination),
@@ -215,19 +214,10 @@ class TripPlan:
                 # stops=1
             )
 
-            # TODO: delete
-            # with open('flights_response.json') as response:
-            #     response = json.load(response)
-
-            # TODO: uncomment
             if response.data:
                 response = response.data['best_flights'][0]
                 cheapest_flight.update({destination: response})
 
-            # TODO: delete
-            # if response['best_flights']:
-            #     response = response['best_flights'][0]
-            #     cheapest_flight.update({destination: response})
         except serpapi.exceptions.SerpApiError as e:
             print(f"Error searching flights to {destination}: {e}")
 
@@ -235,11 +225,8 @@ class TripPlan:
 
     def get_outbound_flight(self, destination: str) -> dict[str: float]:
         cheapest_flight = {}
-        # dest_airport = get_airport_iata_code(destination)
-        # if 'No' in dest_airport:
-        #     dest_airport = 'MAD'
+
         try:
-            # TODO: uncomment
             response = self.serp_client.search(
                 engine='google_flights',
                 departure_id=get_airport_iata_code(self.origin),
@@ -250,21 +237,10 @@ class TripPlan:
                 # stops=1
             )
 
-            # TODO: delete
-            # with open('flights_response.json') as response:
-            #     response = json.load(response)
-
-            # TODO: uncomment
             if response.data:
                 response = response.data['best_flights'][0]
                 self.departure_token = response['departure_token']
                 cheapest_flight.update({destination: response})
-
-            # TODO: delete
-            # if response['best_flights']:
-            #     response = response['best_flights'][0]
-            #     self.departure_token = response['departure_token']
-            #     cheapest_flight.update({destination: response})
         except serpapi.exceptions.SerpApiError as e:
             print(f"Error searching flights to {destination}: {e}")
 
@@ -273,7 +249,6 @@ class TripPlan:
     def get_hotel(self, destination: str, duration: int, budget: int) -> dict[str: int] | None:
         expensive_hotel = {}
         try:
-            # TODO: uncomment
             response = self.serp_client.search(
                 engine='google_hotels',
                 q=f'{destination} hotels',
@@ -284,11 +259,6 @@ class TripPlan:
                 check_out_date=self.end_date,
             )
 
-            # TODO: delete
-            with open('hotels_response.json') as response:
-                response = json.load(response)
-
-            # TODO: uncomment
             if response.data:
                 response = response.data['properties']
                 for prop in reversed(response):  # reversed to get max hotel price
@@ -296,13 +266,6 @@ class TripPlan:
                         expensive_hotel.update({destination: prop})
                         return expensive_hotel
 
-            # TODO: delete
-            # if response['properties']:
-            #     response = response['properties']
-            #     for prop in reversed(response):
-            #         if prop['prices'][0]['rate_per_night']['extracted_lowest'] * duration <= budget:
-            #             expensive_hotel.update({destination: prop})
-            #             return expensive_hotel
         except serpapi.exceptions.SerpApiError as e:
             print(f"Error searching hotels in {destination}: {e}")
 
