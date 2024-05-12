@@ -91,6 +91,8 @@ class TripPlan:
         # default origin
         self.origin = "Tel Aviv"
 
+        self.departure_token = ''  # tokent for return flight
+
         # openai suggestion
         self.possible_destinations = []
 
@@ -188,20 +190,28 @@ class TripPlan:
 
         self.possible_destinations = [dest.strip() for dest in self.possible_destinations]
 
-    def get_flight(self, destination: str) -> dict[str: float]:
+    def get_inbound_flight(self, destination: str) -> dict[str: float]:
         cheapest_flight = {}
-        dest_airport = get_airport_iata_code(destination)
-        if 'No' in dest_airport:
-            dest_airport = 'MAD'
+
         try:
             # TODO: uncomment
+            # response = self.serp_client.search(
+            #     engine='google_flights',
+            #     departure_id=get_airport_iata_code(destination),
+            #     arrival_id=get_airport_iata_code(self.origin),
+            #     outbound_date=self.end_date,
+            #     departure_token=self.departure_token+"=",
+            #     type=2,
+            #     show_hidden=True
+            #     # stops=1
+            # )
             response = self.serp_client.search(
                 engine='google_flights',
-                departure_id=get_airport_iata_code(self.origin),
-                arrival_id=get_airport_iata_code(destination),
-                outbound_date=self.start_date,
-                return_date=self.end_date,
-                show_hidden=True
+                departure_id=get_airport_iata_code(destination),
+                arrival_id=get_airport_iata_code(self.origin),
+                outbound_date=self.end_date,
+                show_hidden=True,
+                type=2
                 # stops=1
             )
 
@@ -223,6 +233,43 @@ class TripPlan:
 
         return cheapest_flight
 
+    def get_outbound_flight(self, destination: str) -> dict[str: float]:
+        cheapest_flight = {}
+        # dest_airport = get_airport_iata_code(destination)
+        # if 'No' in dest_airport:
+        #     dest_airport = 'MAD'
+        try:
+            # TODO: uncomment
+            response = self.serp_client.search(
+                engine='google_flights',
+                departure_id=get_airport_iata_code(self.origin),
+                arrival_id=get_airport_iata_code(destination),
+                outbound_date=self.start_date,
+                return_date=self.end_date,
+                show_hidden=True
+                # stops=1
+            )
+
+            # TODO: delete
+            # with open('flights_response.json') as response:
+            #     response = json.load(response)
+
+            # TODO: uncomment
+            if response.data:
+                response = response.data['best_flights'][0]
+                self.departure_token = response['departure_token']
+                cheapest_flight.update({destination: response})
+
+            # TODO: delete
+            # if response['best_flights']:
+            #     response = response['best_flights'][0]
+            #     self.departure_token = response['departure_token']
+            #     cheapest_flight.update({destination: response})
+        except serpapi.exceptions.SerpApiError as e:
+            print(f"Error searching flights to {destination}: {e}")
+
+        return cheapest_flight
+
     def get_hotel(self, destination: str, duration: int, budget: int) -> dict[str: int] | None:
         expensive_hotel = {}
         try:
@@ -231,20 +278,20 @@ class TripPlan:
                 engine='google_hotels',
                 q=f'{destination} hotels',
                 adults=1,
-                sort_by=3,  # sorts by low
+                sort_by=3,  # sorts by low  #TODO: use page_token to go to the last page
                 max_price=budget,
                 check_in_date=self.start_date,
                 check_out_date=self.end_date,
             )
 
             # TODO: delete
-            # with open('hotels_response.json') as response:
-            #     response = json.load(response)
+            with open('hotels_response.json') as response:
+                response = json.load(response)
 
             # TODO: uncomment
             if response.data:
                 response = response.data['properties']
-                for prop in reversed(response):
+                for prop in reversed(response):  # reversed to get max hotel price
                     if prop['rate_per_night']['extracted_lowest'] * duration <= budget:
                         expensive_hotel.update({destination: prop})
                         return expensive_hotel
@@ -279,24 +326,28 @@ class TripPlan:
         flights = {}  # cheapest
         hotels = {}  # most expensive (budget is after selecting the flight)
         for destination in self.possible_destinations:
-            cheapest_flight = self.get_flight(destination)
-            cheapest_flight_price = cheapest_flight.get(next(iter(cheapest_flight)))['price']
-            if cheapest_flight_price >= self.budget:
+            cheapest_outbound_flight = self.get_outbound_flight(destination)
+            cheapest_inbound_flight = self.get_inbound_flight(destination)
+            cheapest_outbound_flight_price = cheapest_outbound_flight.get(next(iter(cheapest_outbound_flight)))['price']
+            cheapest_inbound_flight_price = cheapest_inbound_flight.get(next(iter(cheapest_inbound_flight)))['price']
+            total_cheapest_flight_price = cheapest_outbound_flight_price + cheapest_inbound_flight_price
+            if total_cheapest_flight_price >= self.budget:
                 print("\nYou can't afford a trip to any of the suggested locations\n")
                 exit()
-            flights.update(cheapest_flight)
+            flights.update(cheapest_outbound_flight)
+            flights.update({next(iter(cheapest_inbound_flight))+"_in": cheapest_inbound_flight.get(next(iter(cheapest_inbound_flight)))})
 
-            expensive_hotel = self.get_hotel(destination, self.duration, int(self.budget - cheapest_flight_price))
+            expensive_hotel = self.get_hotel(destination, self.duration, int(self.budget - total_cheapest_flight_price))
             hotels.update(expensive_hotel)
 
             # cheapest_flight_key = min(flights, key=lambda k: flights[k]['price'])
             # most_expensive_hotel_key = max(hotels, key=lambda k: hotels[k]['prices'][0]['rate_per_night']['extracted_lowest'])
             most_expensive_hotel_price = expensive_hotel.get(next(iter(
                 expensive_hotel)))['rate_per_night']['extracted_lowest']
-            total_cost = cheapest_flight_price + most_expensive_hotel_price * self.duration
+            total_cost = total_cheapest_flight_price + most_expensive_hotel_price * self.duration
             self.travel_options.append({
                 "destination": destination,
-                "flight": cheapest_flight,
+                "flight": [cheapest_outbound_flight, cheapest_inbound_flight],
                 "hotel": expensive_hotel,
                 "total_cost": total_cost,
             })
@@ -346,6 +397,8 @@ plan = TripPlan()
 
 @app.post("/travel_options/")
 def _get_user_trip_preferences(user_pref: TripPreferences):
+    global plan
+    plan = TripPlan()
     plan.get_user_trip_preferences(user_pref)
     plan.get_travel_options()
     if not plan.travel_options:
@@ -355,6 +408,7 @@ def _get_user_trip_preferences(user_pref: TripPreferences):
 
 @app.post("/travel_plans/")
 def generate_daily_plan(trip_selection: TripSelection):
+    global plan
     plan.generate_daily_plan(trip_selection)
     if not plan.trip_plan:
         raise HTTPException(status_code=404, detail="Data not found - Travel Plans")

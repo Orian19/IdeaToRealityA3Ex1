@@ -152,8 +152,17 @@ export default function Home() {
                           <label htmlFor={`trip-${index}`} className="text-lg font-bold mb-2">Destination: {option.destination}</label>
                         </div>
                         <div>
-                          <h4 className="font-semibold">Flights:</h4>
-                          {option.flight?.[option.destination]?.flights?.map((flight, flightIdx) => (
+                        <h4 className="font-bold" style={{ color: 'blue' }}>Flights:</h4>
+                          <h5 className="font-bold" style={{ color: 'red' }}>Outbound:</h5>
+                          {option.flight[0]?.[option.destination]?.flights?.map((flight, flightIdx) => (
+                            <div key={flightIdx} className="mb-2">
+                              <p><strong>Departure:</strong> {flight.departure_airport.name} ({flight.departure_airport.time})</p>
+                              <p><strong>Arrival:</strong> {flight.arrival_airport.name} ({flight.arrival_airport.time})</p>
+                              <p><strong>Airline:</strong> {flight.airline} <img src={flight.airline_logo} alt="Airline logo" style={{verticalAlign: 'middle', height: '20px'}}/></p>
+                            </div>
+                          ))}
+                          <h5 className="font-bold" style={{ color: 'green' }}>Inbound:</h5>
+                          {option.flight[1]?.[option.destination]?.flights?.map((flight, flightIdx) => (
                             <div key={flightIdx} className="mb-2">
                               <p><strong>Departure:</strong> {flight.departure_airport.name} ({flight.departure_airport.time})</p>
                               <p><strong>Arrival:</strong> {flight.arrival_airport.name} ({flight.arrival_airport.time})</p>
