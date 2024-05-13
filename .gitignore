@@ -1,3 +1,7 @@
 .idea
 cfg.json
 __pycache__
+
+#for debug
+flights_response.json
+hotels_response.json
