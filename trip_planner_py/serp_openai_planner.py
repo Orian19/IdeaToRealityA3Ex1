@@ -90,6 +90,7 @@ class TripPlan:
 
         # default origin
         self.origin = "Tel Aviv"
+        self.origin_code = get_airport_iata_code(self.origin)
 
         self.departure_token = ''  # tokent for return flight
 
@@ -192,26 +193,20 @@ class TripPlan:
 
     def get_inbound_flight(self, destination: str) -> dict[str: float]:
         cheapest_flight = {}
-
+        dest_code = get_airport_iata_code(destination)
+        if 'No' in dest_code:
+            # dest_code = 'MAD'
+            print("no code found for this destination")
+            exit()
         try:
-            # response = self.serp_client.search(
-            #     engine='google_flights',
-            #     departure_id=get_airport_iata_code(destination),
-            #     arrival_id=get_airport_iata_code(self.origin),
-            #     outbound_date=self.end_date,
-            #     departure_token=self.departure_token+"=",
-            #     type=2,
-            #     show_hidden=True
-            #     # stops=1
-            # )
             response = self.serp_client.search(
                 engine='google_flights',
-                departure_id=get_airport_iata_code(destination),
-                arrival_id=get_airport_iata_code(self.origin),
-                outbound_date=self.end_date,
+                departure_id=self.origin_code,
+                arrival_id=dest_code,
+                outbound_date=self.start_date,
+                return_date=self.end_date,
                 show_hidden=True,
-                type=2
-                # stops=1
+                departure_token=self.departure_token,
             )
 
             if response.data:
@@ -225,12 +220,17 @@ class TripPlan:
 
     def get_outbound_flight(self, destination: str) -> dict[str: float]:
         cheapest_flight = {}
+        dest_code = get_airport_iata_code(destination)
+        if 'No' in dest_code:
+            # dest_code = 'MAD'
+            print("no code found for this destination")
+            exit()
 
         try:
             response = self.serp_client.search(
                 engine='google_flights',
-                departure_id=get_airport_iata_code(self.origin),
-                arrival_id=get_airport_iata_code(destination),
+                departure_id=self.origin_code,
+                arrival_id=dest_code,
                 outbound_date=self.start_date,
                 return_date=self.end_date,
                 show_hidden=True
